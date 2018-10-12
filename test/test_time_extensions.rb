@@ -24,6 +24,14 @@ describe "time extensions" do
     assert(!Time.parse("July 5th, 2010 2:37 pm").workday?)
   end
 
+  it "know workdays is not weekend" do
+    BusinessTime::Config.workdays << Date.parse("Oct 13th, 2018")
+    BusinessTime::Config.workdays << Date.parse("Oct 14th, 2018")
+
+    assert(Time.parse("Oct 13th, 2018 1:15 pm").workday?)
+    assert(Time.parse("Oct 14th, 2018 2:37 pm").workday?)
+  end
+
 
   it "know the beginning of the day for an instance" do
     first = Time.parse("August 17th, 2010, 11:50 am")

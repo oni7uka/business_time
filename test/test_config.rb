@@ -20,6 +20,13 @@ describe "config" do
     assert BusinessTime::Config.holidays.include?(daves_birthday)
   end
 
+  it "keep track of workdays" do
+    assert BusinessTime::Config.workdays.empty?
+    daves_birthday = Date.parse("August 4th, 1969")
+    BusinessTime::Config.workdays << daves_birthday
+    assert BusinessTime::Config.workdays.include?(daves_birthday)
+  end
+
   it "keep track of work week" do
     assert_equal %w[mon tue wed thu fri], BusinessTime::Config.work_week
     BusinessTime::Config.work_week = %w[sun mon tue wed thu]
@@ -72,6 +79,8 @@ describe "config" do
         - mon
       holidays:
         - December 25th, 2012
+      workdays:
+        - December 25th, 2018
     YAML
     config_file = StringIO.new(yaml.gsub!(/^    /, ''))
     BusinessTime::Config.load(config_file)
@@ -79,6 +88,7 @@ describe "config" do
     assert_equal BusinessTime::ParsedTime.new(14, 0), BusinessTime::Config.end_of_workday
     assert_equal ['mon'], BusinessTime::Config.work_week
     assert_equal SortedSet.new([Date.parse('2012-12-25')]), BusinessTime::Config.holidays
+    assert_equal SortedSet.new([Date.parse('2018-12-25')]), BusinessTime::Config.workdays
   end
 
   it "include holidays read from YAML config files" do
@@ -93,6 +103,18 @@ describe "config" do
     assert !Time.parse('2012-05-07').workday?
   end
 
+  it "include workdays read from YAML config files" do
+    yaml = <<-YAML
+    business_time:
+      workdays:
+        - 2018-10-13
+    YAML
+    assert !Time.parse('2018-10-13').workday?
+    config_file = StringIO.new(yaml.gsub!(/^    /, ''))
+    BusinessTime::Config.load(config_file)
+    assert Time.parse('2018-10-13').workday?
+  end
+
   it "use defaults for values missing in YAML file" do
     yaml = <<-YAML
     business_time:
@@ -104,6 +126,7 @@ describe "config" do
     assert_equal BusinessTime::ParsedTime.new(17, 0), BusinessTime::Config.end_of_workday
     assert_equal %w[mon tue wed thu fri], BusinessTime::Config.work_week
     assert_equal SortedSet.new, BusinessTime::Config.holidays
+    assert_equal SortedSet.new, BusinessTime::Config.workdays
   end
 
   it "is threadsafe" do
