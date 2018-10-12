@@ -3,7 +3,7 @@ module BusinessTime
     # True if this time is on a workday (between 00:00:00 and 23:59:59), even if
     # this time falls outside of normal business hours.
     def workday?
-      weekday? && !BusinessTime::Config.holidays.include?(to_date)
+      BusinessTime::Config.workdays.include?(to_date) || weekday? && !BusinessTime::Config.holidays.include?(to_date)
     end
 
     # True if this time falls on a weekday.
@@ -17,7 +17,7 @@ module BusinessTime
       # Note: It pretends that this day is a workday whether or not it really is a
       # workday.
       def end_of_workday(day)
-        end_of_workday = Time.parse(BusinessTime::Config.end_of_workday(day))
+        end_of_workday = BusinessTime::Config.end_of_workday(day)
         change_business_time(day,end_of_workday.hour,end_of_workday.min,end_of_workday.sec)
       end
 
@@ -26,7 +26,7 @@ module BusinessTime
       # Note: It pretends that this day is a workday whether or not it really is a
       # workday.
       def beginning_of_workday(day)
-        beginning_of_workday = Time.parse(BusinessTime::Config.beginning_of_workday(day))
+        beginning_of_workday = BusinessTime::Config.beginning_of_workday(day)
         change_business_time(day,beginning_of_workday.hour,beginning_of_workday.min,beginning_of_workday.sec)
       end
 
@@ -116,15 +116,15 @@ module BusinessTime
         if hours = BusinessTime::Config.work_hours[day]
           BusinessTime::Config.work_hours_total[day] ||= begin
             hours_last = hours.last
-            if hours_last == '00:00'
-              (Time.parse('23:59') - Time.parse(hours.first)) + 1.minute
+            if hours_last == ParsedTime.new(0, 0)
+              (ParsedTime.new(23, 59) - hours.first) + 1.minute
             else
-              Time.parse(hours_last) - Time.parse(hours.first)
+              hours_last - hours.first
             end
           end
         else
           BusinessTime::Config.work_hours_total[:default] ||= begin
-            Time.parse(BusinessTime::Config.end_of_workday) - Time.parse(BusinessTime::Config.beginning_of_workday)
+            BusinessTime::Config.end_of_workday - BusinessTime::Config.beginning_of_workday
           end
         end
       end
@@ -132,11 +132,7 @@ module BusinessTime
       private
 
       def change_business_time time, hour, min=0, sec=0
-        if Time.zone
-          time.in_time_zone(Time.zone).change(:hour => hour, :min => min, :sec => sec)
-        else
-          time.change(:hour => hour, :min => min, :sec => sec)
-        end
+        time.change(:hour => hour, :min => min, :sec => sec)
       end
     end
 
@@ -172,6 +168,31 @@ module BusinessTime
 
     def during_business_hours?
       self.workday? && self.to_i.between?(Time.beginning_of_workday(self).to_i, Time.end_of_workday(self).to_i)
+    end
+
+    def consecutive_workdays
+      workday? ? consecutive_days { |date| date.workday? } : []
+    end
+
+    def consecutive_non_working_days
+      !workday? ? consecutive_days { |date| !date.workday? } : []
+    end
+
+    private
+
+    def consecutive_days
+      days = []
+      date = self + 1.day
+      while yield(date)
+        days << date
+        date += 1.day
+      end
+      date = self - 1.day
+      while yield(date)
+        days << date
+        date -= 1.day
+      end
+      (days << self).sort
     end
   end
 end
