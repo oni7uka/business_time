@@ -176,10 +176,10 @@ module BusinessTime
         end
 
         (config["holidays"] || []).each do |holiday|
-          holidays << Date.parse(holiday)
+          holidays << Date.parse(holiday.to_s)
         end
         (config["workdays"] || []).each do |workday|
-          workdays << Date.parse(workday)
+          workdays << Date.parse(workday.to_s)
         end
       end
 
